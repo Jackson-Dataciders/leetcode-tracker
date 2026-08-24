@@ -1,65 +1,146 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useCallback, useMemo } from "react";
+import { CURRICULUM } from "@/lib/curriculum";
+import type { FilterState, Problem } from "@/lib/types";
+import { useProgress } from "@/hooks/useProgress";
+import ProgressHeader from "@/components/ProgressHeader";
+import FilterToolbar from "@/components/FilterToolbar";
+import CategoryAccordion from "@/components/CategoryAccordion";
+import ProblemRow from "@/components/ProblemRow";
 
 export default function Home() {
+  const {
+    toggle,
+    isCompleted,
+    totalCompleted,
+    completedByDifficulty,
+    completedByCategory,
+  } = useProgress();
+
+  const [filters, setFilters] = useState<FilterState>({
+    search: "",
+    difficulties: new Set(),
+    status: "all",
+  });
+
+  const [openCategories, setOpenCategories] = useState<Set<number>>(new Set());
+  const [highlightedProblemId, setHighlightedProblemId] = useState<string | null>(null);
+
+  const toggleCategory = useCallback((index: number) => {
+    setOpenCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
+
+  const filteredCurriculum = useMemo(() => {
+    const searchLower = filters.search.toLowerCase();
+
+    return CURRICULUM.map((cat) => {
+      const filtered = cat.problems.filter((p) => {
+        if (searchLower && !p.title.toLowerCase().includes(searchLower)) {
+          return false;
+        }
+        if (filters.difficulties.size > 0 && !filters.difficulties.has(p.difficulty)) {
+          return false;
+        }
+        if (filters.status === "open" && isCompleted(p.id)) {
+          return false;
+        }
+        if (filters.status === "completed" && !isCompleted(p.id)) {
+          return false;
+        }
+        return true;
+      });
+
+      return { ...cat, problems: filtered };
+    }).filter((cat) => cat.problems.length > 0);
+  }, [filters, isCompleted]);
+
+  const handleJumpToNext = useCallback(() => {
+    let bestCategory: (typeof CURRICULUM)[number] | null = null;
+    let bestRatio = Infinity;
+
+    for (const cat of CURRICULUM) {
+      const total = cat.problems.length;
+      const completed = completedByCategory[cat.name] ?? 0;
+
+      if (completed >= total) continue;
+
+      const ratio = completed / total;
+      if (ratio < bestRatio || (ratio === bestRatio && (!bestCategory || cat.index < bestCategory.index))) {
+        bestRatio = ratio;
+        bestCategory = cat;
+      }
+    }
+
+    if (!bestCategory) return;
+
+    const nextProblem = bestCategory.problems.find((p) => !isCompleted(p.id));
+    if (!nextProblem) return;
+
+    setOpenCategories((prev) => new Set(prev).add(bestCategory.index));
+    setHighlightedProblemId(nextProblem.id);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-problem-id="${nextProblem.id}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    });
+
+    setTimeout(() => {
+      setHighlightedProblemId(null);
+    }, 1500);
+  }, [completedByCategory, isCompleted]);
+
+  const renderProblem = useCallback(
+    (problem: Problem) => (
+      <ProblemRow
+        problem={problem}
+        isCompleted={isCompleted(problem.id)}
+        onToggle={() => toggle(problem.id)}
+        highlight={highlightedProblemId === problem.id}
+      />
+    ),
+    [isCompleted, toggle, highlightedProblemId]
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="space-y-6">
+      <ProgressHeader
+        totalCompleted={totalCompleted}
+        completedByDifficulty={completedByDifficulty}
+        onJumpToNext={handleJumpToNext}
+      />
+
+      <FilterToolbar filters={filters} onFiltersChange={setFilters} />
+
+      <div className="space-y-2">
+        {filteredCurriculum.map((cat) => (
+          <CategoryAccordion
+            key={cat.index}
+            category={cat}
+            completedCount={completedByCategory[cat.name] ?? 0}
+            isOpen={openCategories.has(cat.index)}
+            onToggleOpen={() => toggleCategory(cat.index)}
+            renderProblem={renderProblem}
+          />
+        ))}
+        {filteredCurriculum.length === 0 && (
+          <p className="text-center text-mocha-overlay0 py-8 text-sm">
+            No problems match your filters.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        )}
+      </div>
     </div>
   );
 }

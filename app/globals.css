@@ -1,26 +1,37 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-mocha-base: #1e1e2e;
+  --color-mocha-mantle: #181825;
+  --color-mocha-crust: #11111b;
+  --color-mocha-surface0: #313244;
+  --color-mocha-surface1: #45475a;
+  --color-mocha-surface2: #585b70;
+  --color-mocha-text: #cdd6f4;
+  --color-mocha-subtext1: #bac2de;
+  --color-mocha-subtext0: #a6adc8;
+  --color-mocha-overlay0: #6c7086;
+  --color-mocha-overlay1: #7f849c;
+  --color-mocha-mauve: #cba6f7;
+  --color-mocha-lavender: #b4befe;
+  --color-mocha-green: #a6e3a1;
+  --color-mocha-yellow: #f9e2af;
+  --color-mocha-red: #f38ba8;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@keyframes highlight-fade {
+  0% {
+    border-color: #b4befe;
+    box-shadow: 0 0 0 1px #b4befe;
+  }
+  100% {
+    border-color: transparent;
+    box-shadow: 0 0 0 1px transparent;
+  }
 }
